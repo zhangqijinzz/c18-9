@@ -1,10 +1,12 @@
+import { useState } from 'react'
+import { SCALE_LIMITS, type ScaleField } from '../domain/brandRules'
 import type { BrandMirrorSnapshot, BrandTheme } from '../models/brandMirrorModels'
 
 interface TokenControlsProps {
   snapshot: BrandMirrorSnapshot
   onThemeChange: (theme: BrandTheme) => void
   onColorChange: (field: 'primary' | 'secondary', value: string) => void
-  onScaleChange: (field: 'radiusScale' | 'spacingScale' | 'typeScale', index: number, value: number) => void
+  onScaleChange: (field: ScaleField, index: number, raw: string) => void
   onReset: () => void
 }
 
@@ -50,9 +52,9 @@ export function TokenControls({ snapshot, onThemeChange, onColorChange, onScaleC
         </div>
       </section>
 
-      <ScaleControl label="圆角尺度" hint="px" values={snapshot.tokens.radiusScale} field="radiusScale" onChange={onScaleChange} />
-      <ScaleControl label="间距体系" hint="px" values={snapshot.tokens.spacingScale} field="spacingScale" onChange={onScaleChange} />
-      <ScaleControl label="字体比例" hint="px" values={snapshot.tokens.typeScale} field="typeScale" onChange={onScaleChange} />
+      <ScaleControl field="radiusScale" values={snapshot.tokens.radiusScale} onCommit={onScaleChange} />
+      <ScaleControl field="spacingScale" values={snapshot.tokens.spacingScale} onCommit={onScaleChange} />
+      <ScaleControl field="typeScale" values={snapshot.tokens.typeScale} onCommit={onScaleChange} />
 
       <div className="panel-footer"><span className="live-dot" />所有调整实时同步到预览</div>
     </aside>
@@ -63,6 +65,47 @@ function ColorField({ label, value, onChange }: { label: string; value: string; 
   return <label className="color-field"><span>{label}</span><div className="color-input"><input aria-label={label} type="color" value={value} onChange={(event) => onChange(event.target.value)} /><input aria-label={`${label} HEX`} value={value} onChange={(event) => onChange(event.target.value)} /></div></label>
 }
 
-function ScaleControl({ label, hint, values, field, onChange }: { label: string; hint: string; values: number[]; field: 'radiusScale' | 'spacingScale' | 'typeScale'; onChange: (field: 'radiusScale' | 'spacingScale' | 'typeScale', index: number, value: number) => void }) {
-  return <section className="control-section scale-section"><div className="section-label"><span>{label}</span><span className="muted">{hint}</span></div><div className="scale-inputs">{values.map((value, index) => <label key={`${field}-${index}`}><span>{index + 1}</span><input aria-label={`${label}${index + 1}`} type="number" min={field === 'typeScale' ? 10 : 0} max={field === 'typeScale' ? 72 : field === 'spacingScale' ? 64 : 40} value={value} onChange={(event) => onChange(field, index, Number(event.target.value))} /></label>)}</div></section>
+function ScaleControl({ field, values, onCommit }: { field: ScaleField; values: number[]; onCommit: (field: ScaleField, index: number, raw: string) => void }) {
+  const limits = SCALE_LIMITS[field]
+  return (
+    <section className="control-section scale-section">
+      <div className="section-label"><span>{limits.label}</span><span className="muted">{limits.min}–{limits.max} px</span></div>
+      <div className="scale-inputs">
+        {values.map((value, index) => (
+          <label key={`${field}-${index}`}>
+            <span>{index + 1}</span>
+            <ScaleInput ariaLabel={`${limits.label}${index + 1}`} value={value} onCommit={(raw) => onCommit(field, index, raw)} />
+          </label>
+        ))}
+      </div>
+    </section>
+  )
+}
+
+function ScaleInput({ value, ariaLabel, onCommit }: { value: number; ariaLabel: string; onCommit: (raw: string) => void }) {
+  const [draft, setDraft] = useState<string | null>(null)
+
+  const commit = () => {
+    if (draft === null) return
+    onCommit(draft)
+    setDraft(null)
+  }
+
+  return (
+    <input
+      aria-label={ariaLabel}
+      type="text"
+      inputMode="decimal"
+      value={draft ?? String(value)}
+      onChange={(event) => setDraft(event.target.value)}
+      onBlur={commit}
+      onKeyDown={(event) => {
+        if (event.key === 'Enter') {
+          commit()
+          event.currentTarget.blur()
+        }
+        if (event.key === 'Escape') setDraft(null)
+      }}
+    />
+  )
 }

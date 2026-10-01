@@ -50,6 +50,34 @@ describe('BrandMirrorViewModel', () => {
     expect(viewModel.getSnapshot().tokens.secondary).toBe('#FFFFFF')
   })
 
+  it('ignores empty or incomplete scale input and keeps the stored value untouched', () => {
+    const repository = new MemoryRepository()
+    const viewModel = new BrandMirrorViewModel(repository)
+    viewModel.initialize()
+    viewModel.commitScaleValue('typeScale', 0, '')
+    expect(viewModel.getSnapshot().tokens.typeScale[0]).toBe(12)
+    expect(repository.document).toBeNull()
+    expect(viewModel.getSnapshot().message).toContain('保留原值 12')
+    viewModel.commitScaleValue('typeScale', 0, '18')
+    viewModel.commitScaleValue('typeScale', 0, '-')
+    expect(viewModel.getSnapshot().tokens.typeScale[0]).toBe(18)
+    expect(repository.document?.tokens.typeScale[0]).toBe(18)
+  })
+
+  it('clamps out-of-range input and keeps snapshot and storage consistent', () => {
+    const repository = new MemoryRepository()
+    const viewModel = new BrandMirrorViewModel(repository)
+    viewModel.initialize()
+    viewModel.commitScaleValue('typeScale', 0, '200')
+    expect(viewModel.getSnapshot().tokens.typeScale[0]).toBe(72)
+    expect(repository.document?.tokens.typeScale[0]).toBe(72)
+    expect(viewModel.getSnapshot().message).toContain('已限制到 72')
+    viewModel.commitScaleValue('spacingScale', 0, '0')
+    expect(viewModel.getSnapshot().tokens.spacingScale[0]).toBe(2)
+    expect(repository.document?.tokens.spacingScale[0]).toBe(2)
+    expect(viewModel.getSnapshot().message).toContain('已限制到 2')
+  })
+
   it('recovers a previously persisted document on initialization', () => {
     const repository = new MemoryRepository()
     repository.document = { version: 1, theme: 'night', tokens: { primary: '#A98BFF', secondary: '#191829', radiusScale: [6, 10, 14, 22], spacingScale: [4, 8, 12, 18, 28], typeScale: [12, 14, 16, 20, 28, 38] }, versions: [] }

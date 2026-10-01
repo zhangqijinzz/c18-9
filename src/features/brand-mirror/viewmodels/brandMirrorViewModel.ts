@@ -1,4 +1,4 @@
-import { clampTokenValues, cloneTokens, contrastRatio, normalizeColor, themeTokens, validateTokens } from '../domain/brandRules'
+import { cloneTokens, contrastRatio, normalizeColor, parseScaleValue, SCALE_LIMITS, themeTokens, validateTokens, type ScaleField } from '../domain/brandRules'
 import type { BrandRepository } from '../repositories/brandRepository'
 import type { BrandGuidelinesExporter } from '../services/exportService'
 import { INITIAL_TOKENS, type BrandDocument, type BrandMirrorSnapshot, type BrandTheme, type SavedVersion } from '../models/brandMirrorModels'
@@ -44,10 +44,23 @@ export class BrandMirrorViewModel {
     this.update({ tokens: { ...this.snapshot.tokens, [field]: color } }, '令牌已更新')
   }
 
-  updateScale(field: 'radiusScale' | 'spacingScale' | 'typeScale', index: number, value: number): void {
+  updateScale(field: ScaleField, index: number, value: number): void {
+    this.commitScaleValue(field, index, String(value))
+  }
+
+  commitScaleValue(field: ScaleField, index: number, raw: string): void {
+    const limits = SCALE_LIMITS[field]
+    const result = parseScaleValue(field, raw)
+    if (!result.ok) {
+      const current = this.snapshot.tokens[field][index]
+      this.snapshot = { ...this.snapshot, message: `输入无效：${limits.label}需在 ${limits.min}–${limits.max} 之间，已保留原值 ${current}` }
+      this.emit()
+      return
+    }
     const values = [...this.snapshot.tokens[field]]
-    values[index] = Number.isFinite(value) ? value : values[index]
-    this.update({ tokens: clampTokenValues({ ...this.snapshot.tokens, [field]: values }) }, '令牌已更新')
+    values[index] = result.value
+    const message = result.clamped ? `已限制到 ${result.value}：${limits.label}允许范围 ${limits.min}–${limits.max}` : '令牌已更新'
+    this.update({ tokens: { ...this.snapshot.tokens, [field]: values } }, message)
   }
 
   reset(): void {

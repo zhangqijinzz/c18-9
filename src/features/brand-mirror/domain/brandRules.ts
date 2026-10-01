@@ -2,6 +2,26 @@ import type { BrandTheme, BrandTokens } from '../models/brandMirrorModels'
 import { INITIAL_TOKENS, THEME_PRESETS } from '../models/brandMirrorModels'
 
 const HEX_COLOR = /^#[0-9A-F]{6}$/i
+const NUMERIC_TEXT = /^[+-]?(\d+\.?\d*|\.\d+)([eE][+-]?\d+)?$/
+
+export type ScaleField = 'radiusScale' | 'spacingScale' | 'typeScale'
+
+export const SCALE_LIMITS: Record<ScaleField, { label: string; min: number; max: number }> = {
+  radiusScale: { label: '圆角尺度', min: 0, max: 40 },
+  spacingScale: { label: '间距体系', min: 2, max: 64 },
+  typeScale: { label: '字体比例', min: 10, max: 72 },
+}
+
+export type ScaleParseResult = { ok: true; value: number; clamped: boolean } | { ok: false }
+
+export function parseScaleValue(field: ScaleField, raw: string): ScaleParseResult {
+  const text = raw.trim()
+  if (!NUMERIC_TEXT.test(text)) return { ok: false }
+  const parsed = Math.round(Number(text))
+  const { min, max } = SCALE_LIMITS[field]
+  const value = Math.min(max, Math.max(min, parsed))
+  return { ok: true, value, clamped: value !== parsed }
+}
 
 export function cloneTokens(tokens: BrandTokens): BrandTokens {
   return { ...tokens, radiusScale: [...tokens.radiusScale], spacingScale: [...tokens.spacingScale], typeScale: [...tokens.typeScale] }
@@ -19,16 +39,21 @@ export function normalizeColor(value: string): string {
 export function clampTokenValues(tokens: BrandTokens): BrandTokens {
   return {
     ...cloneTokens(tokens),
-    radiusScale: tokens.radiusScale.map((value) => Math.min(40, Math.max(0, Math.round(value)))),
-    spacingScale: tokens.spacingScale.map((value) => Math.min(64, Math.max(2, Math.round(value)))),
-    typeScale: tokens.typeScale.map((value) => Math.min(72, Math.max(10, Math.round(value)))),
+    radiusScale: tokens.radiusScale.map((value) => clampScaleValue('radiusScale', value)),
+    spacingScale: tokens.spacingScale.map((value) => clampScaleValue('spacingScale', value)),
+    typeScale: tokens.typeScale.map((value) => clampScaleValue('typeScale', value)),
   }
+}
+
+function clampScaleValue(field: ScaleField, value: number): number {
+  const { min, max } = SCALE_LIMITS[field]
+  return Math.min(max, Math.max(min, Math.round(value)))
 }
 
 export function validateTokens(tokens: BrandTokens): string | null {
   if (!isHexColor(tokens.primary) || !isHexColor(tokens.secondary)) return '请输入 6 位 HEX 颜色'
   if (tokens.radiusScale.length !== 4 || tokens.spacingScale.length !== 5 || tokens.typeScale.length !== 6) return '令牌层级数量不完整'
-  if (tokens.typeScale.some((value) => value < 10 || value > 72)) return '字号范围应在 10–72px'
+  if (tokens.typeScale.some((value) => value < SCALE_LIMITS.typeScale.min || value > SCALE_LIMITS.typeScale.max)) return `字号范围应在 ${SCALE_LIMITS.typeScale.min}–${SCALE_LIMITS.typeScale.max}px`
   return null
 }
 
