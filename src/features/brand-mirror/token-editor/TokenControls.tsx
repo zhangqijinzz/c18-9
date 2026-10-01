@@ -1,10 +1,12 @@
+import { useRef, useState } from 'react'
 import type { BrandMirrorSnapshot, BrandTheme } from '../models/brandMirrorModels'
+import type { ScaleField } from '../domain/brandRules'
 
 interface TokenControlsProps {
   snapshot: BrandMirrorSnapshot
   onThemeChange: (theme: BrandTheme) => void
   onColorChange: (field: 'primary' | 'secondary', value: string) => void
-  onScaleChange: (field: 'radiusScale' | 'spacingScale' | 'typeScale', index: number, value: number) => void
+  onScaleChange: (field: ScaleField, index: number, value: string) => void
   onReset: () => void
 }
 
@@ -63,6 +65,49 @@ function ColorField({ label, value, onChange }: { label: string; value: string; 
   return <label className="color-field"><span>{label}</span><div className="color-input"><input aria-label={label} type="color" value={value} onChange={(event) => onChange(event.target.value)} /><input aria-label={`${label} HEX`} value={value} onChange={(event) => onChange(event.target.value)} /></div></label>
 }
 
-function ScaleControl({ label, hint, values, field, onChange }: { label: string; hint: string; values: number[]; field: 'radiusScale' | 'spacingScale' | 'typeScale'; onChange: (field: 'radiusScale' | 'spacingScale' | 'typeScale', index: number, value: number) => void }) {
-  return <section className="control-section scale-section"><div className="section-label"><span>{label}</span><span className="muted">{hint}</span></div><div className="scale-inputs">{values.map((value, index) => <label key={`${field}-${index}`}><span>{index + 1}</span><input aria-label={`${label}${index + 1}`} type="number" min={field === 'typeScale' ? 10 : 0} max={field === 'typeScale' ? 72 : field === 'spacingScale' ? 64 : 40} value={value} onChange={(event) => onChange(field, index, Number(event.target.value))} /></label>)}</div></section>
+function ScaleControl({ label, hint, values, field, onChange }: { label: string; hint: string; values: number[]; field: ScaleField; onChange: (field: ScaleField, index: number, value: string) => void }) {
+  return (
+    <section className="control-section scale-section">
+      <div className="section-label"><span>{label}</span><span className="muted">{hint}</span></div>
+      <div className="scale-inputs">
+        {values.map((value, index) => (
+          <label key={`${field}-${index}`}>
+            <span>{index + 1}</span>
+            <ScaleNumberInput label={`${label}${index + 1}`} value={value} onCommit={(raw) => onChange(field, index, raw)} />
+          </label>
+        ))}
+      </div>
+    </section>
+  )
+}
+
+function ScaleNumberInput({ label, value, onCommit }: { label: string; value: number; onCommit: (raw: string) => void }) {
+  const [draft, setDraft] = useState<string | null>(null)
+  const skipCommit = useRef(false)
+
+  const handleBlur = () => {
+    if (skipCommit.current) {
+      skipCommit.current = false
+      setDraft(null)
+      return
+    }
+    if (draft !== null && draft.trim() !== String(value)) onCommit(draft)
+    setDraft(null)
+  }
+
+  return (
+    <input
+      aria-label={label}
+      type="text"
+      inputMode="decimal"
+      value={draft ?? String(value)}
+      onFocus={(event) => { setDraft(String(value)); event.target.select() }}
+      onChange={(event) => setDraft(event.target.value)}
+      onBlur={handleBlur}
+      onKeyDown={(event) => {
+        if (event.key === 'Enter') event.currentTarget.blur()
+        if (event.key === 'Escape') { skipCommit.current = true; event.currentTarget.blur() }
+      }}
+    />
+  )
 }

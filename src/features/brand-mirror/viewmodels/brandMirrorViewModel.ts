@@ -1,4 +1,5 @@
-import { clampTokenValues, cloneTokens, contrastRatio, normalizeColor, themeTokens, validateTokens } from '../domain/brandRules'
+import { clampScaleValue, cloneTokens, contrastRatio, normalizeColor, parseScaleInput, SCALE_FIELD_LABELS, SCALE_LIMITS, themeTokens, validateTokens } from '../domain/brandRules'
+import type { ScaleField } from '../domain/brandRules'
 import type { BrandRepository } from '../repositories/brandRepository'
 import type { BrandGuidelinesExporter } from '../services/exportService'
 import { INITIAL_TOKENS, type BrandDocument, type BrandMirrorSnapshot, type BrandTheme, type SavedVersion } from '../models/brandMirrorModels'
@@ -44,10 +45,22 @@ export class BrandMirrorViewModel {
     this.update({ tokens: { ...this.snapshot.tokens, [field]: color } }, '令牌已更新')
   }
 
-  updateScale(field: 'radiusScale' | 'spacingScale' | 'typeScale', index: number, value: number): void {
+  updateScale(field: ScaleField, index: number, raw: string): void {
+    const label = SCALE_FIELD_LABELS[field]
+    const parsed = parseScaleInput(raw)
+    if (parsed === null) {
+      this.snapshot = { ...this.snapshot, message: `${label} 输入无效，已保留原值 ${this.snapshot.tokens[field][index]}` }
+      this.emit()
+      return
+    }
+    const clamped = clampScaleValue(field, parsed)
     const values = [...this.snapshot.tokens[field]]
-    values[index] = Number.isFinite(value) ? value : values[index]
-    this.update({ tokens: clampTokenValues({ ...this.snapshot.tokens, [field]: values }) }, '令牌已更新')
+    values[index] = clamped
+    const { min, max } = SCALE_LIMITS[field]
+    let message = '令牌已更新'
+    if (parsed < min || parsed > max) message = `${label} 超出允许范围（${min}–${max}），已限制为 ${clamped}`
+    else if (clamped !== parsed) message = `${label} 已取整为 ${clamped}`
+    this.update({ tokens: { ...this.snapshot.tokens, [field]: values } }, message)
   }
 
   reset(): void {

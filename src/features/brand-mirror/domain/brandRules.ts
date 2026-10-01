@@ -2,9 +2,36 @@ import type { BrandTheme, BrandTokens } from '../models/brandMirrorModels'
 import { INITIAL_TOKENS, THEME_PRESETS } from '../models/brandMirrorModels'
 
 const HEX_COLOR = /^#[0-9A-F]{6}$/i
+const SCALE_NUMBER = /^[+-]?(\d+\.?\d*|\.\d+)$/
+
+export const SCALE_LIMITS = {
+  radiusScale: { min: 0, max: 40 },
+  spacingScale: { min: 2, max: 64 },
+  typeScale: { min: 10, max: 72 },
+} as const
+
+export type ScaleField = keyof typeof SCALE_LIMITS
+
+export const SCALE_FIELD_LABELS: Record<ScaleField, string> = {
+  radiusScale: '圆角尺度',
+  spacingScale: '间距体系',
+  typeScale: '字体比例',
+}
 
 export function cloneTokens(tokens: BrandTokens): BrandTokens {
   return { ...tokens, radiusScale: [...tokens.radiusScale], spacingScale: [...tokens.spacingScale], typeScale: [...tokens.typeScale] }
+}
+
+export function parseScaleInput(raw: string): number | null {
+  const trimmed = raw.trim()
+  if (!SCALE_NUMBER.test(trimmed)) return null
+  const value = Number(trimmed)
+  return Number.isFinite(value) ? value : null
+}
+
+export function clampScaleValue(field: ScaleField, value: number): number {
+  const { min, max } = SCALE_LIMITS[field]
+  return Math.min(max, Math.max(min, Math.round(value)))
 }
 
 export function isHexColor(value: string): boolean {
@@ -19,9 +46,9 @@ export function normalizeColor(value: string): string {
 export function clampTokenValues(tokens: BrandTokens): BrandTokens {
   return {
     ...cloneTokens(tokens),
-    radiusScale: tokens.radiusScale.map((value) => Math.min(40, Math.max(0, Math.round(value)))),
-    spacingScale: tokens.spacingScale.map((value) => Math.min(64, Math.max(2, Math.round(value)))),
-    typeScale: tokens.typeScale.map((value) => Math.min(72, Math.max(10, Math.round(value)))),
+    radiusScale: tokens.radiusScale.map((value) => clampScaleValue('radiusScale', value)),
+    spacingScale: tokens.spacingScale.map((value) => clampScaleValue('spacingScale', value)),
+    typeScale: tokens.typeScale.map((value) => clampScaleValue('typeScale', value)),
   }
 }
 

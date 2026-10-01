@@ -22,7 +22,7 @@ describe('BrandMirrorViewModel', () => {
     const viewModel = new BrandMirrorViewModel(repository)
     viewModel.initialize()
     viewModel.updateColor('primary', '#123456')
-    viewModel.updateScale('typeScale', 0, 18)
+    viewModel.updateScale('typeScale', 0, '18')
     expect(viewModel.getSnapshot().tokens.primary).toBe('#123456')
     expect(viewModel.getSnapshot().tokens.typeScale[0]).toBe(18)
     expect(repository.document?.tokens.primary).toBe('#123456')
@@ -38,6 +38,34 @@ describe('BrandMirrorViewModel', () => {
     viewModel.toggleCompare()
     expect(viewModel.getSnapshot().versions.map((version) => version.label)).toEqual(['Version A', 'Version B'])
     expect(viewModel.getSnapshot().compareMode).toBe(true)
+  })
+
+  it('keeps the previous value and explains when scale input is empty or invalid', () => {
+    const repository = new MemoryRepository()
+    const viewModel = new BrandMirrorViewModel(repository)
+    viewModel.initialize()
+    viewModel.updateScale('typeScale', 0, '16')
+    expect(repository.document?.tokens.typeScale[0]).toBe(16)
+    viewModel.updateScale('typeScale', 0, '')
+    expect(viewModel.getSnapshot().tokens.typeScale[0]).toBe(16)
+    expect(viewModel.getSnapshot().message).toContain('保留原值 16')
+    viewModel.updateScale('typeScale', 0, 'abc')
+    expect(viewModel.getSnapshot().tokens.typeScale[0]).toBe(16)
+    expect(repository.document?.tokens.typeScale[0]).toBe(16)
+  })
+
+  it('clamps out-of-range scale values and reports the applied value', () => {
+    const repository = new MemoryRepository()
+    const viewModel = new BrandMirrorViewModel(repository)
+    viewModel.initialize()
+    viewModel.updateScale('typeScale', 0, '500')
+    expect(viewModel.getSnapshot().tokens.typeScale[0]).toBe(72)
+    expect(viewModel.getSnapshot().message).toContain('已限制为 72')
+    expect(repository.document?.tokens.typeScale[0]).toBe(72)
+    viewModel.updateScale('radiusScale', 0, '-8')
+    expect(viewModel.getSnapshot().tokens.radiusScale[0]).toBe(0)
+    expect(viewModel.getSnapshot().message).toContain('已限制为 0')
+    expect(repository.document?.tokens.radiusScale[0]).toBe(0)
   })
 
   it('keeps editing usable when persistence fails', () => {

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { clampTokenValues, contrastRatio, validateTokens } from '../domain/brandRules'
+import { clampScaleValue, clampTokenValues, contrastRatio, parseScaleInput, validateTokens } from '../domain/brandRules'
 import { INITIAL_TOKENS } from '../models/brandMirrorModels'
 
 describe('brand token rules', () => {
@@ -13,6 +13,24 @@ describe('brand token rules', () => {
     expect(clamped.typeScale).toEqual([10, 72, 14, 20, 28, 40])
     expect(clamped.radiusScale).toEqual([0, 12, 18, 40])
     expect(clamped.spacingScale).toEqual([2, 8, 12, 20, 64])
+  })
+
+  it('accepts only complete numeric input and rejects empty or partial text', () => {
+    expect(parseScaleInput('')).toBeNull()
+    expect(parseScaleInput('   ')).toBeNull()
+    expect(parseScaleInput('-')).toBeNull()
+    expect(parseScaleInput('abc')).toBeNull()
+    expect(parseScaleInput('1.2.3')).toBeNull()
+    expect(parseScaleInput('18')).toBe(18)
+    expect(parseScaleInput(' -4 ')).toBe(-4)
+    expect(parseScaleInput('12.5')).toBe(12.5)
+  })
+
+  it('clamps a single scale value within its field limits', () => {
+    expect(clampScaleValue('typeScale', 500)).toBe(72)
+    expect(clampScaleValue('typeScale', 4)).toBe(10)
+    expect(clampScaleValue('spacingScale', 0)).toBe(2)
+    expect(clampScaleValue('radiusScale', 16.6)).toBe(17)
   })
 
   it('rejects invalid colors and unsupported scale lengths', () => {
